@@ -66,6 +66,19 @@ async def verify_dataset_access(dataset_id: str, db: AsyncSession) -> str:
         )
 
 
+EAGER_TASK_STORE = {}
+
+def handle_task_submission(task) -> TaskSubmissionResponse:
+    if getattr(celery_app.conf, "task_always_eager", False):
+        EAGER_TASK_STORE[task.id] = {
+            "task_id": task.id,
+            "state": task.state,
+            "result": task.result if task.state == "SUCCESS" else None,
+            "error": str(task.result) if task.state == "FAILURE" else None
+        }
+    return TaskSubmissionResponse(task_id=task.id)
+
+
 @router.post("/correlations", response_model=TaskSubmissionResponse, status_code=status.HTTP_202_ACCEPTED)
 async def submit_correlations(
     payload: CorrelationRequest,
@@ -81,7 +94,7 @@ async def submit_correlations(
         columns=payload.columns,
         method=payload.method
     )
-    return TaskSubmissionResponse(task_id=task.id)
+    return handle_task_submission(task)
 
 
 @router.post("/statistics-test", response_model=TaskSubmissionResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -101,7 +114,7 @@ async def submit_statistical_test(
         control_val=payload.control_val,
         treatment_val=payload.treatment_val
     )
-    return TaskSubmissionResponse(task_id=task.id)
+    return handle_task_submission(task)
 
 
 @router.post("/anomalies", response_model=TaskSubmissionResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -119,7 +132,7 @@ async def submit_anomaly_detection(
         algorithm=payload.algorithm,
         contamination=payload.contamination
     )
-    return TaskSubmissionResponse(task_id=task.id)
+    return handle_task_submission(task)
 
 
 @router.post("/forecast", response_model=TaskSubmissionResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -137,7 +150,7 @@ async def submit_forecast(
         value_col=payload.value_col,
         steps=payload.steps
     )
-    return TaskSubmissionResponse(task_id=task.id)
+    return handle_task_submission(task)
 
 
 @router.get("/tasks/{task_id}")
@@ -146,6 +159,9 @@ async def get_task_status(
     current_user: DomainUser = Depends(get_current_user_dependency)
 ):
     """Check background task execution progress, state, and retrieve results upon success."""
+    if getattr(celery_app.conf, "task_always_eager", False) and task_id in EAGER_TASK_STORE:
+        return EAGER_TASK_STORE[task_id]
+
     res = AsyncResult(task_id, app=celery_app)
     
     # Task metadata response builder

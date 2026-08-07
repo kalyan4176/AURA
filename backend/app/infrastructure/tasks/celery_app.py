@@ -22,3 +22,14 @@ celery_app.conf.update(
     task_time_limit=1800,  # 30 minutes hard limit
     task_soft_time_limit=1200  # 20 minutes soft limit
 )
+
+# Robust fallback: check if Redis is active
+import redis
+from loguru import logger
+try:
+    r = redis.Redis.from_url(settings.REDIS_URL)
+    r.ping()
+except Exception as e:
+    logger.warning(f"Redis is offline ({e}). Enabling Celery task_always_eager=True (synchronous in-memory execution).")
+    celery_app.conf.task_always_eager = True
+

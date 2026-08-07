@@ -1,7 +1,7 @@
 import os
 import uuid
 import shutil
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger

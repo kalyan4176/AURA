@@ -119,10 +119,26 @@ export function Reports({ workspaceId }) {
     addCommentMutation.mutate({ rId: selectedReportId, text: newComment });
   };
 
-  const triggerExport = () => {
-    // Navigate browser to download endpoint
-    const token = localStorage.getItem('aura_token');
-    window.open(`/api/reports/${selectedReportId}/export?token=${token || ''}`, '_blank');
+  const triggerExport = async () => {
+    try {
+      const response = await fetch(`/api/reports/${selectedReportId}/export`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('aura_token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Download request failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aura_report_${selectedReportId}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to download report document: ' + err.message);
+    }
   };
 
   const fetchAiSummary = async () => {

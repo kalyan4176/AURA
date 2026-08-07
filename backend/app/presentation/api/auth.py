@@ -1,21 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.domain.auth.entities import UserCreate, UserLogin, Token, User as DomainUser
 from app.application.auth.services import AuthService
-from fastapi.security import OAuth2PasswordBearer
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
-
-
 async def get_current_user_dependency(
-    token: str = Depends(oauth2_scheme), 
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> DomainUser:
-    """Dependency to retrieve the logged-in user from the JWT access token."""
+    """Dependency to retrieve the logged-in user from the JWT access token.
+    Supports standard Authorization headers and ?token=... query strings for downloads.
+    """
+    token = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+    
+    if not token:
+        token = request.query_params.get("token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token missing.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     auth_service = AuthService(db)
     try:
         return await auth_service.get_current_user(token)

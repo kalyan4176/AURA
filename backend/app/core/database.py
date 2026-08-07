@@ -3,12 +3,40 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import declarative_base
 from app.core.config import settings
 
+import socket
+from loguru import logger
+
+db_url = settings.DATABASE_URL
+is_postgres = "postgresql" in db_url
+postgres_offline = False
+
+if is_postgres:
+    host = "localhost"
+    port = 5432
+    try:
+        # Parse connection host
+        if "@" in db_url:
+            authority = db_url.split("@")[1].split("/")[0]
+            if ":" in authority:
+                host, port_str = authority.split(":")
+                port = int(port_str)
+            else:
+                host = authority
+        
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        s.connect((host, port))
+        s.close()
+    except Exception:
+        postgres_offline = True
+        logger.warning(f"PostgreSQL target ({host}:{port}) is offline. Falling back to local SQLite: sqlite+aiosqlite:///./data/aura_prototype.db")
+        db_url = "sqlite+aiosqlite:///./data/aura_prototype.db"
+
 # Create asynchronous engine
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    db_url,
     pool_pre_ping=True,
-    pool_size=20,
-    max_overflow=10,
+    **({} if "sqlite" in db_url else {"pool_size": 20, "max_overflow": 10})
 )
 
 # Async session factory
