@@ -163,14 +163,36 @@ class AIBudgetManager:
                 elif cleaned_chart_data:
                     keys = list(cleaned_chart_data[0].keys())
                     x_key = keys[0]
-                    points = [[i, r[x_key]] for i, r in enumerate(cleaned_chart_data) if r[x_key] is not None]
-                    chart_spec = {
-                        "type": "bar",
-                        "x_col": "Index",
-                        "y_col": x_key,
-                        "title": f"Distribution of {x_key}",
-                        "points": points
-                    }
+                    vals = [float(r[x_key]) for r in cleaned_chart_data if r[x_key] is not None and isinstance(r[x_key], (int, float))]
+                    if vals:
+                        min_v, max_v = min(vals), max(vals)
+                        step = (max_v - min_v) / 10 if max_v > min_v else 1.0
+                        bin_counts = {}
+                        for v in vals:
+                            b_idx = int((v - min_v) / step) if step > 0 else 0
+                            b_idx = min(b_idx, 9)
+                            b_start = round(min_v + b_idx * step, 1)
+                            b_end = round(min_v + (b_idx + 1) * step, 1)
+                            b_label = f"${b_start} - ${b_end}" if "amount" in x_key.lower() else f"{b_start} - {b_end}"
+                            bin_counts[b_label] = bin_counts.get(b_label, 0) + 1
+                        
+                        bar_points = [[k, cnt] for k, cnt in bin_counts.items()]
+                        chart_spec = {
+                            "type": "bar",
+                            "x_col": f"{x_key} Range",
+                            "y_col": "Frequency Count",
+                            "title": f"Distribution Histogram of {x_key}",
+                            "points": bar_points
+                        }
+                    else:
+                        points = [[i, r[x_key]] for i, r in enumerate(cleaned_chart_data[:20]) if r[x_key] is not None]
+                        chart_spec = {
+                            "type": "bar",
+                            "x_col": "Index",
+                            "y_col": x_key,
+                            "title": f"Distribution of {x_key}",
+                            "points": points
+                        }
                 
                 # Generate recommended chart suggestions based on column metadata
                 suggested_charts = []

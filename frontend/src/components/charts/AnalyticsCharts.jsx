@@ -256,7 +256,12 @@ export const DynamicAIChart = React.memo(function DynamicAIChart({ spec }) {
         type: 'category',
         data: spec.points.map(p => String(p[0])),
         name: spec.x_col || 'Category',
-        axisLabel: { interval: 0, rotate: 15, fontSize: 11 }
+        axisLabel: { 
+          interval: spec.points.length > 15 ? 'auto' : 0, 
+          rotate: spec.points.length > 8 ? 20 : 0, 
+          fontSize: 10,
+          color: '#4F6D8A'
+        }
       }
     : {
         type: 'value',
