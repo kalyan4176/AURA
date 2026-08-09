@@ -25,6 +25,7 @@ class AnomalyReport(BaseModel):
     anomaly_indices: List[int]
     confidence_scores: List[float]
     summary: str
+    plot_data: Optional[List[Dict[str, Any]]] = None
 
 
 class ForecastResult(BaseModel):

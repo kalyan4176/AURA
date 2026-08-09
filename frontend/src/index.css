@@ -7,58 +7,112 @@
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
-  background-color: #0b0f19;
-  color: #f3f4f6;
-  overflow-x: auto;
-  min-width: 1200px;
+  background-color: #F7F9FC;
+  color: #1A202C;
+  overflow-x: hidden;
 }
 
-/* Custom premium scrollbars */
+/* Custom premium scrollbars for light mode */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(11, 15, 25, 0.5);
+  background: rgba(226, 232, 240, 0.5);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(74, 85, 104, 0.2);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(74, 85, 104, 0.4);
 }
 
-/* Custom premium classes */
+/* Custom premium classes for light corporate theme */
 .glass-card {
-  background: rgba(17, 24, 39, 0.65);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
 }
 
 .glass-nav {
-  background: rgba(11, 15, 25, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, #10b981 0%, #6366f1 100%);
+  background: linear-gradient(135deg, #1E3A5F 0%, #4F6D8A 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* AG Grid styling overrides for dark theme */
-.ag-theme-alpine-dark {
-  --ag-background-color: rgba(17, 24, 39, 0.9) !important;
-  --ag-border-color: rgba(255, 255, 255, 0.08) !important;
-  --ag-header-background-color: rgba(11, 15, 25, 0.95) !important;
-  --ag-odd-row-background-color: rgba(255, 255, 255, 0.01) !important;
-  --ag-row-hover-color: rgba(255, 255, 255, 0.04) !important;
+/* AG Grid styling overrides for light theme */
+.ag-theme-alpine {
+  --ag-background-color: #FFFFFF !important;
+  --ag-border-color: #E2E8F0 !important;
+  --ag-header-background-color: #F7F9FC !important;
+  --ag-row-hover-color: #F1F5F9 !important;
+  --ag-odd-row-background-color: #F8FAFC !important;
 }
+
+/* Global Form & Input Overrides for Professional Corporate Light Mode */
+input[type="text"], input[type="password"], input[type="email"], select, textarea {
+  background-color: #FFFFFF !important;
+  color: #1A202C !important;
+  border: 1px solid #E2E8F0 !important;
+}
+
+input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus, select:focus, textarea:focus {
+  border-color: #1E3A5F !important;
+  ring: 0 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #718096 !important;
+  opacity: 0.65;
+}
+
+/* Remap legacy dark background utility selectors to Light Theme equivalents */
+.bg-black\/40, .bg-black\/20 {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+}
+
+.bg-white\/5, .bg-white\/2 {
+  background-color: #F8FAFC !important;
+}
+
+.hover\:bg-white\/5:hover {
+  background-color: #F1F5F9 !important;
+}
+
+.hover\:bg-white\/10:hover {
+  background-color: #E2E8F0 !important;
+}
+
+.text-text-primary {
+  color: #1A202C !important;
+}
+
+.text-text-secondary {
+  color: #4A5568 !important;
+}
+
+/* Custom indicator panel overrides */
+.border-secondary\/20, .border-secondary\/10 {
+  border-color: #CBD5E1 !important;
+}
+
+.bg-secondary\/5, .bg-secondary\/2 {
+  background-color: #EFF6FF !important;
+}
+
+.text-secondary {
+  color: #1E3A5F !important;
+}
+

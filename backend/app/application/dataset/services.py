@@ -141,3 +141,15 @@ class DatasetService:
         if not db_dataset:
             raise ValueError(f"Dataset with ID {dataset_id} not found.")
         return DomainDataset.model_validate(db_dataset)
+
+    async def delete_workspace(self, workspace_id: str) -> bool:
+        ws_uuid = uuid.UUID(workspace_id)
+        # Delete all datasets under this workspace first
+        datasets = await self.dataset_repo.get_by_workspace(ws_uuid)
+        for ds in datasets:
+            await self.dataset_repo.delete(ds.id)
+        return await self.workspace_repo.delete(ws_uuid)
+
+    async def delete_dataset(self, dataset_id: str) -> bool:
+        ds_uuid = uuid.UUID(dataset_id)
+        return await self.dataset_repo.delete(ds_uuid)

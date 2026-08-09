@@ -103,3 +103,31 @@ async def get_dataset_preview(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+
+@router.delete("/{workspace_id}", status_code=status.HTTP_200_OK)
+async def delete_workspace(
+    workspace_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: DomainUser = Depends(require_role([UserRole.ADMIN, UserRole.ANALYST]))
+):
+    """Delete a workspace and all datasets inside it."""
+    service = DatasetService(db)
+    success = await service.delete_workspace(workspace_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found.")
+    return {"status": "success", "message": "Workspace deleted successfully."}
+
+
+@router.delete("/datasets/{dataset_id}", status_code=status.HTTP_200_OK)
+async def delete_dataset(
+    dataset_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: DomainUser = Depends(require_role([UserRole.ADMIN, UserRole.ANALYST]))
+):
+    """Delete a dataset from the workspace."""
+    service = DatasetService(db)
+    success = await service.delete_dataset(dataset_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found.")
+    return {"status": "success", "message": "Dataset deleted successfully."}
+

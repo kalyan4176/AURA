@@ -54,6 +54,16 @@ class WorkspaceRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def delete(self, workspace_id: UUID) -> bool:
+        stmt = select(WorkspaceModel).where(WorkspaceModel.id == workspace_id)
+        result = await self.session.execute(stmt)
+        db_ws = result.scalars().first()
+        if db_ws:
+            await self.session.delete(db_ws)
+            await self.session.commit()
+            return True
+        return False
+
 
 class DatasetRepository:
     def __init__(self, session: AsyncSession):
@@ -98,6 +108,22 @@ class DatasetRepository:
         await self.session.commit()
         await self.session.refresh(db_ds)
         return db_ds
+
+    async def delete(self, dataset_id: UUID) -> bool:
+        stmt = select(DatasetModel).where(DatasetModel.id == dataset_id)
+        result = await self.session.execute(stmt)
+        db_ds = result.scalars().first()
+        if db_ds:
+            import os
+            if os.path.exists(db_ds.file_path):
+                try:
+                    os.remove(db_ds.file_path)
+                except Exception:
+                    pass
+            await self.session.delete(db_ds)
+            await self.session.commit()
+            return True
+        return False
 
 
 class ReportRepository:

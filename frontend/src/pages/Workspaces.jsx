@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { FolderPlus, FileSpreadsheet, HardDrive, Plus, Loader2 } from 'lucide-react';
+import { FolderPlus, FileSpreadsheet, HardDrive, Plus, Loader2, Trash2 } from 'lucide-react';
 
 export function Workspaces({ onSelectDataset }) {
   const queryClient = useQueryClient();
@@ -34,6 +34,23 @@ export function Workspaces({ onSelectDataset }) {
       setShowCreateWorkspace(false);
       setWsName('');
       setWsDesc('');
+    },
+  });
+
+  // Delete workspace mutation
+  const deleteWorkspaceMutation = useMutation({
+    mutationFn: (id) => api.delete(`/workspaces/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      setSelectedWorkspaceId(null);
+    },
+  });
+
+  // Delete dataset mutation
+  const deleteDatasetMutation = useMutation({
+    mutationFn: (id) => api.delete(`/workspaces/datasets/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['datasets', selectedWorkspaceId] });
     },
   });
 
@@ -99,7 +116,7 @@ export function Workspaces({ onSelectDataset }) {
             <button 
               type="submit"
               disabled={createWorkspaceMutation.isPending}
-              className="bg-primary hover:bg-primary-hover text-black font-semibold rounded py-1.5 text-sm transition-all flex items-center justify-center gap-2"
+              className="bg-primary hover:bg-primary-hover text-white font-semibold rounded py-1.5 text-sm transition-all flex items-center justify-center gap-2"
             >
               {createWorkspaceMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Create
             </button>
@@ -111,18 +128,29 @@ export function Workspaces({ onSelectDataset }) {
         ) : (
           <div className="flex flex-col gap-2 overflow-y-auto max-h-[60vh]">
             {workspaces.map((ws) => (
-              <button
+              <div
                 key={ws.id}
-                onClick={() => setSelectedWorkspaceId(ws.id)}
-                className={`text-left p-3.5 rounded-lg border transition-all ${
+                className={`group flex items-center justify-between p-3.5 rounded-lg border transition-all ${
                   selectedWorkspaceId === ws.id 
                     ? 'bg-primary/10 border-primary text-text-primary shadow-lg shadow-primary/5' 
                     : 'border-border bg-white/0 text-text-secondary hover:bg-white/5 hover:text-text-primary'
                 }`}
               >
-                <div className="font-semibold">{ws.name}</div>
-                {ws.description && <div className="text-xs opacity-60 mt-1 truncate">{ws.description}</div>}
-              </button>
+                <button
+                  onClick={() => setSelectedWorkspaceId(ws.id)}
+                  className="flex-1 text-left"
+                >
+                  <div className="font-semibold">{ws.name}</div>
+                  {ws.description && <div className="text-xs opacity-60 mt-1 truncate">{ws.description}</div>}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this workspace and all its datasets?')) deleteWorkspaceMutation.mutate(ws.id); }}
+                  className="p-1 text-text-secondary hover:text-red-500 rounded transition-all opacity-60 hover:opacity-100 focus:opacity-100"
+                  title="Delete Workspace"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             ))}
             {workspaces.length === 0 && (
               <div className="text-xs text-text-secondary text-center py-6">No workspaces created yet. Click "+" to start.</div>
@@ -150,7 +178,7 @@ export function Workspaces({ onSelectDataset }) {
               {/* File Upload Selector */}
               <div>
                 <label 
-                  className={`px-4 py-2 bg-primary hover:bg-primary-hover text-black font-semibold rounded-lg text-sm cursor-pointer transition-all flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                  className={`px-4 py-2 bg-primary hover:bg-primary-hover text-white font-semibold rounded-lg text-sm cursor-pointer transition-all flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
                 >
                   {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 
                   Upload Dataset (CSV/Parquet)
@@ -207,12 +235,21 @@ export function Workspaces({ onSelectDataset }) {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => onSelectDataset(dataset.id, dataset.workspace_id)}
-                      className="mt-4 w-full bg-white/5 hover:bg-primary hover:text-black border border-border hover:border-primary rounded-lg py-2 text-xs font-semibold text-text-primary transition-all"
-                    >
-                      Inspect Profile & Dashboard
-                    </button>
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={() => onSelectDataset(dataset.id, dataset.workspace_id)}
+                        className="flex-1 bg-white/5 hover:bg-primary hover:text-white border border-border hover:border-primary rounded-lg py-2 text-xs font-semibold text-text-primary transition-all"
+                      >
+                        Inspect Profile & Dashboard
+                      </button>
+                      <button
+                        onClick={() => { if (confirm('Are you sure you want to delete this dataset?')) deleteDatasetMutation.mutate(dataset.id); }}
+                        className="px-3 border border-border bg-white/5 hover:bg-red-500/10 text-red-500 rounded-lg transition-all"
+                        title="Delete Dataset"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {datasets.length === 0 && (

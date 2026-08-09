@@ -54,11 +54,11 @@ class TaskSubmissionResponse(BaseModel):
 
 
 async def verify_dataset_access(dataset_id: str, db: AsyncSession) -> str:
-    """Helper dependency to verify dataset availability before worker queueing."""
+    """Helper dependency to verify dataset availability and return the file path."""
     dataset_service = DatasetService(db)
     try:
         dataset = await dataset_service.get_dataset(dataset_id)
-        return dataset.id
+        return dataset.file_path
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -86,11 +86,11 @@ async def submit_correlations(
     current_user: DomainUser = Depends(get_current_user_dependency)
 ):
     """Submit a task to calculate pairwise column correlations."""
-    await verify_dataset_access(payload.dataset_id, db)
+    file_path = await verify_dataset_access(payload.dataset_id, db)
     
     # Launch Celery background task
     task = run_correlation_task.delay(
-        dataset_id=payload.dataset_id,
+        file_path=file_path,
         columns=payload.columns,
         method=payload.method
     )
@@ -104,10 +104,10 @@ async def submit_statistical_test(
     current_user: DomainUser = Depends(get_current_user_dependency)
 ):
     """Submit a task to run standard hypothesis tests."""
-    await verify_dataset_access(payload.dataset_id, db)
+    file_path = await verify_dataset_access(payload.dataset_id, db)
     
     task = run_statistical_test_task.delay(
-        dataset_id=payload.dataset_id,
+        file_path=file_path,
         test_type=payload.test_type,
         group_col=payload.group_col,
         value_col=payload.value_col,
@@ -124,10 +124,10 @@ async def submit_anomaly_detection(
     current_user: DomainUser = Depends(get_current_user_dependency)
 ):
     """Submit a task to execute Isolation Forest / LOF anomaly detection."""
-    await verify_dataset_access(payload.dataset_id, db)
+    file_path = await verify_dataset_access(payload.dataset_id, db)
     
     task = run_anomaly_detection_task.delay(
-        dataset_id=payload.dataset_id,
+        file_path=file_path,
         columns=payload.columns,
         algorithm=payload.algorithm,
         contamination=payload.contamination
@@ -142,10 +142,10 @@ async def submit_forecast(
     current_user: DomainUser = Depends(get_current_user_dependency)
 ):
     """Submit a task to calculate exponential smoothing forecasting metrics."""
-    await verify_dataset_access(payload.dataset_id, db)
+    file_path = await verify_dataset_access(payload.dataset_id, db)
     
     task = run_forecast_task.delay(
-        dataset_id=payload.dataset_id,
+        file_path=file_path,
         time_col=payload.time_col,
         value_col=payload.value_col,
         steps=payload.steps

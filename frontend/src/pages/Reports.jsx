@@ -5,6 +5,42 @@ import {
   FileText, Plus, Download, MessageSquare, Sparkles, Send, Loader2, Calendar, FileType 
 } from 'lucide-react';
 
+function parseInline(str) {
+  const parts = str.split('**');
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return <strong key={i} className="font-bold text-text-primary">{part}</strong>;
+    }
+    return part;
+  });
+}
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  const lines = text.split('\n');
+  return lines.map((line, idx) => {
+    let trimmed = line.trim();
+    if (!trimmed) return <div key={idx} className="h-2" />;
+    
+    if (trimmed.startsWith('### ')) {
+      return <h3 key={idx} className="text-sm font-bold text-text-primary mt-2 mb-1">{parseInline(trimmed.substring(4))}</h3>;
+    }
+    if (trimmed.startsWith('#### ')) {
+      return <h4 key={idx} className="text-xs font-bold text-text-primary mt-1.5 mb-1">{parseInline(trimmed.substring(5))}</h4>;
+    }
+    
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      return (
+        <li key={idx} className="list-disc ml-5 text-xs text-text-secondary mt-0.5">
+          {parseInline(trimmed.substring(2))}
+        </li>
+      );
+    }
+    
+    return <p key={idx} className="text-xs text-text-secondary leading-relaxed mt-0.5">{parseInline(trimmed)}</p>;
+  });
+}
+
 export function Reports({ workspaceId }) {
   const queryClient = useQueryClient();
   const [selectedReportId, setSelectedReportId] = useState(null);
@@ -187,7 +223,7 @@ export function Reports({ workspaceId }) {
               <button 
                 type="submit"
                 disabled={createReportMutation.isPending}
-                className="bg-primary hover:bg-primary-hover text-black font-semibold rounded py-1.5 text-xs transition-all flex items-center justify-center gap-2"
+                className="bg-primary hover:bg-primary-hover text-white font-semibold rounded py-1.5 text-xs transition-all flex items-center justify-center gap-2"
               >
                 {createReportMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Create Report
               </button>
@@ -257,7 +293,7 @@ export function Reports({ workspaceId }) {
 
                 <button 
                   onClick={triggerExport}
-                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-black font-bold rounded-lg text-xs transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg text-xs transition-all flex items-center gap-2"
                 >
                   <Download className="w-3.5 h-3.5" /> Export Markdown
                 </button>
@@ -270,9 +306,9 @@ export function Reports({ workspaceId }) {
                 <h3 className="text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4" /> AI Executive Briefing
                 </h3>
-                <p className="text-sm leading-relaxed text-text-primary bg-black/20 p-4 rounded-xl border border-border">
-                  {aiSummary}
-                </p>
+                <div className="p-5 bg-white/5 rounded-xl border border-border flex flex-col gap-1 text-sm text-text-primary">
+                  {renderMarkdown(aiSummary)}
+                </div>
               </div>
             )}
 
@@ -327,7 +363,7 @@ export function Reports({ workspaceId }) {
                         />
                         <button 
                           onClick={() => handleAddAnnotation(comp.id)}
-                          className="px-3 bg-primary hover:bg-primary-hover text-black text-xs font-bold rounded"
+                          className="px-3 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded"
                         >
                           Save
                         </button>
@@ -383,7 +419,7 @@ export function Reports({ workspaceId }) {
                 <button 
                   type="submit"
                   disabled={addCommentMutation.isPending}
-                  className="px-4 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-black font-bold rounded-xl transition-all"
+                  className="px-4 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-white font-bold rounded-xl transition-all"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>

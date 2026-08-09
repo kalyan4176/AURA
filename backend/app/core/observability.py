@@ -78,6 +78,14 @@ class SystemMonitor:
                 }
             }
 
+    @classmethod
+    def reset(cls):
+        with cls._lock:
+            cls._api_request_count = 0
+            cls._api_total_latency = 0.0
+            cls._cache_hits = 0
+            cls._cache_misses = 0
+
 
 # Global systems monitor reference
 system_monitor = SystemMonitor()

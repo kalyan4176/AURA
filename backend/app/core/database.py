@@ -33,9 +33,16 @@ if is_postgres:
         db_url = "sqlite+aiosqlite:///./data/aura_prototype.db"
 
 # Create asynchronous engine
+connect_args = {}
+if "postgresql" in db_url:
+    import ssl
+    ssl_context = ssl.create_default_context()
+    connect_args["ssl"] = ssl_context
+
 engine = create_async_engine(
     db_url,
     pool_pre_ping=True,
+    connect_args=connect_args,
     **({} if "sqlite" in db_url else {"pool_size": 20, "max_overflow": 10})
 )
 

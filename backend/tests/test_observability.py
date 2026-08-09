@@ -4,6 +4,7 @@ from app.application.notification.services import NotificationService
 
 
 def test_observability_telemetry():
+    system_monitor.reset()
     # 1. Record mock requests in SystemMonitor
     system_monitor.record_api_call(0.125)
     system_monitor.record_api_call(0.075)

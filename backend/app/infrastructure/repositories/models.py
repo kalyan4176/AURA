@@ -116,3 +116,14 @@ class NotificationModel(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class ChatMessageModel(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    dataset_id = Column(GUID(), ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(50), nullable=False)  # user or assistant
+    content = Column(Text, nullable=False)
+    chart_spec = Column(JSON, nullable=True)
+    query_executed = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+

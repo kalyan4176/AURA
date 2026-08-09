@@ -34,7 +34,7 @@ export function DataGrid({ columns = [], rows = [], height = '400px' }) {
   }), []);
 
   return (
-    <div className="ag-theme-alpine-dark w-full overflow-hidden rounded-lg border border-border" style={{ height }}>
+    <div className="ag-theme-alpine w-full overflow-hidden rounded-lg border border-border" style={{ height }}>
       <AgGridReact
         rowData={rows}
         columnDefs={columnDefs}

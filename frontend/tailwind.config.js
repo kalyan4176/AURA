@@ -7,22 +7,30 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#0b0f19", // sleek dark blue-grey background
-        card: "rgba(17, 24, 39, 0.7)", // glass card fill
-        border: "rgba(255, 255, 255, 0.08)", // glass border
+        background: "#F7F9FC", // Off White background
+        card: "#FFFFFF", // White card
+        border: "#E2E8F0", // Light Gray border
         primary: {
-          DEFAULT: "#10b981", // vibrant emerald
-          hover: "#059669",
+          DEFAULT: "#1E3A5F", // Deep Navy primary
+          hover: "#142A45",
         },
         secondary: {
-          DEFAULT: "#6366f1", // royal indigo
-          hover: "#4f46e5",
+          DEFAULT: "#4F6D8A", // Slate Blue secondary
+          hover: "#3C546C",
         },
-        accent: "#f59e0b", // clean amber outlier warning
+        accent: {
+          DEFAULT: "#2F855A", // Emerald accent
+          hover: "#226343",
+        },
         text: {
-          primary: "#f3f4f6", // off white text
-          secondary: "#9ca3af", // gray text
-        }
+          primary: "#1A202C", // Charcoal text
+          secondary: "#4A5568", // Slate Gray text
+          muted: "#718096", // Gray muted text
+        },
+        info: "#3182CE", // Blue info
+        warning: "#D69E2E", // Amber warning
+        error: "#C53030", // Crimson error
+        success: "#2F855A", // Emerald success
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],

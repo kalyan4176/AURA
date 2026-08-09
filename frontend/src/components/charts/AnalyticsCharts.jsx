@@ -4,7 +4,7 @@ import ReactECharts from 'echarts-for-react';
 /**
  * Renders correlation coefficient matrix as an interactive heatmap.
  */
-export function CorrelationHeatmap({ columns = [], matrix = [] }) {
+export const CorrelationHeatmap = React.memo(function CorrelationHeatmap({ columns = [], matrix = [] }) {
   // Format correlation matrix for ECharts heatmap series: [[x_idx, y_idx, coef], ...]
   const data = [];
   matrix.forEach((row, rIdx) => {
@@ -33,13 +33,13 @@ export function CorrelationHeatmap({ columns = [], matrix = [] }) {
       type: 'category',
       data: columns,
       splitArea: { show: true },
-      axisLabel: { color: '#9ca3af', rotate: 30 }
+      axisLabel: { color: '#4A5568', rotate: 30 }
     },
     yAxis: {
       type: 'category',
       data: columns,
       splitArea: { show: true },
-      axisLabel: { color: '#9ca3af' }
+      axisLabel: { color: '#4A5568' }
     },
     visualMap: {
       min: -1,
@@ -49,9 +49,9 @@ export function CorrelationHeatmap({ columns = [], matrix = [] }) {
       left: 'center',
       bottom: '0%',
       inRange: {
-        color: ['#ef4444', '#1f2937', '#10b981'] // Red (negative) -> Gray (neutral) -> Emerald (positive)
+        color: ['#C53030', '#F1F5F9', '#1E3A5F'] // Crimson (negative) -> Off-White (neutral) -> Deep Navy (positive)
       },
-      textStyle: { color: '#9ca3af' }
+      textStyle: { color: '#4A5568' }
     },
     series: [
       {
@@ -60,13 +60,13 @@ export function CorrelationHeatmap({ columns = [], matrix = [] }) {
         data: data,
         label: {
           show: true,
-          color: '#f3f4f6',
+          color: '#1A202C',
           formatter: (params) => String(params.data[2])
         },
         emphasis: {
           itemStyle: {
             shadowBlur: 10,
-            shadowColor: 'rgba(0, 0, 0, 0.5)'
+            shadowColor: 'rgba(0, 0, 0, 0.15)'
           }
         }
       }
@@ -74,13 +74,13 @@ export function CorrelationHeatmap({ columns = [], matrix = [] }) {
   };
 
   return <ReactECharts option={option} style={{ height: '350px', width: '100%' }} />;
-}
+});
 
 /**
  * Renders data points scatter plot, highlighting anomalies.
  */
-export function AnomalyScatter({ rows = [], columns = [], anomalyIndices = [] }) {
-  if (columns.length === 0 || rows.length === 0) return null;
+export const AnomalyScatter = React.memo(function AnomalyScatter({ rows = [], columns = [], anomalyIndices = [], plotData = [] }) {
+  if (columns.length === 0) return null;
   
   // Plot first column on X, second column on Y (default to X if 1D)
   const colX = columns[0];
@@ -89,35 +89,47 @@ export function AnomalyScatter({ rows = [], columns = [], anomalyIndices = [] })
   const normalPoints = [];
   const anomalyPoints = [];
 
-  rows.forEach((row, idx) => {
-    const point = [row[colX], row[colY], idx];
-    if (anomalyIndices.includes(idx)) {
-      anomalyPoints.push(point);
-    } else {
-      normalPoints.push(point);
-    }
-  });
+  if (plotData && plotData.length > 0) {
+    plotData.forEach((point) => {
+      const p = [point.x, point.y, point.original_index !== undefined ? point.original_index : point.row_index];
+      if (point.is_anomaly) {
+        anomalyPoints.push(p);
+      } else {
+        normalPoints.push(p);
+      }
+    });
+  } else {
+    if (rows.length === 0) return null;
+    rows.forEach((row, idx) => {
+      const point = [row[colX], row[colY], idx];
+      if (anomalyIndices.includes(idx)) {
+        anomalyPoints.push(point);
+      } else {
+        normalPoints.push(point);
+      }
+    });
+  }
 
   const option = {
     legend: {
       data: ['Normal Data', 'Flagged Outliers'],
-      textStyle: { color: '#9ca3af' },
+      textStyle: { color: '#4A5568' },
       top: '0%'
     },
     grid: { left: '10%', right: '10%', bottom: '15%', top: '15%' },
     xAxis: {
       name: colX,
       type: 'value',
-      nameTextStyle: { color: '#9ca3af' },
-      axisLabel: { color: '#9ca3af' },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+      nameTextStyle: { color: '#4A5568' },
+      axisLabel: { color: '#4A5568' },
+      splitLine: { lineStyle: { color: '#E2E8F0' } }
     },
     yAxis: {
       name: colY,
       type: 'value',
-      nameTextStyle: { color: '#9ca3af' },
-      axisLabel: { color: '#9ca3af' },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+      nameTextStyle: { color: '#4A5568' },
+      axisLabel: { color: '#4A5568' },
+      splitLine: { lineStyle: { color: '#E2E8F0' } }
     },
     tooltip: {
       formatter: (params) => {
@@ -129,32 +141,29 @@ export function AnomalyScatter({ rows = [], columns = [], anomalyIndices = [] })
         name: 'Normal Data',
         type: 'scatter',
         data: normalPoints,
-        itemStyle: { color: '#6366f1', opacity: 0.6 },
+        itemStyle: { color: '#4F6D8A', opacity: 0.6 },
         symbolSize: 8
       },
       {
         name: 'Flagged Outliers',
         type: 'scatter',
         data: anomalyPoints,
-        itemStyle: { color: '#ef4444' },
+        itemStyle: { color: '#C53030' },
         symbolSize: 12,
         label: {
-          show: true,
-          position: 'top',
-          color: '#ef4444',
-          formatter: (params) => `Index ${params.data[2]}`
+          show: false
         }
       }
     ]
   };
 
   return <ReactECharts option={option} style={{ height: '350px', width: '100%' }} />;
-}
+});
 
 /**
  * Time series line chart rendering forecasts with upper/lower bounds.
  */
-export function ForecastAreaLine({ timeline = [], historicalValues = [], forecastTimeline = [], forecastValues = [], lowerBounds = [], upperBounds = [] }) {
+export const ForecastAreaLine = React.memo(function ForecastAreaLine({ timeline = [], historicalValues = [], forecastTimeline = [], forecastValues = [], lowerBounds = [], upperBounds = [] }) {
   const fullTimeline = [...timeline, ...forecastTimeline];
   
   // Pad historical values with nulls for the forecast range
@@ -175,26 +184,26 @@ export function ForecastAreaLine({ timeline = [], historicalValues = [], forecas
     },
     legend: {
       data: ['Historical Trend', 'Forecast Prediction', 'Prediction Boundary'],
-      textStyle: { color: '#9ca3af' },
+      textStyle: { color: '#4A5568' },
       top: '0%'
     },
     grid: { left: '8%', right: '8%', bottom: '15%', top: '15%' },
     xAxis: {
       type: 'category',
       data: fullTimeline,
-      axisLabel: { color: '#9ca3af', rotate: 30 }
+      axisLabel: { color: '#4A5568', rotate: 30 }
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: '#9ca3af' },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+      axisLabel: { color: '#4A5568' },
+      splitLine: { lineStyle: { color: '#E2E8F0' } }
     },
     series: [
       {
         name: 'Historical Trend',
         type: 'line',
         data: histSeries,
-        itemStyle: { color: '#10b981' },
+        itemStyle: { color: '#2F855A' },
         lineStyle: { width: 3 },
         symbol: 'none'
       },
@@ -202,7 +211,7 @@ export function ForecastAreaLine({ timeline = [], historicalValues = [], forecas
         name: 'Forecast Prediction',
         type: 'line',
         data: forecastSeries,
-        itemStyle: { color: '#6366f1' },
+        itemStyle: { color: '#1E3A5F' },
         lineStyle: { width: 3, type: 'dashed' },
         symbol: 'circle'
       },
@@ -223,11 +232,73 @@ export function ForecastAreaLine({ timeline = [], historicalValues = [], forecas
         symbol: 'none',
         stack: 'confidence',
         areaStyle: {
-          color: 'rgba(99, 102, 241, 0.15)'
+          color: 'rgba(30, 58, 95, 0.1)'
         }
       }
     ]
   };
 
   return <ReactECharts option={option} style={{ height: '350px', width: '100%' }} />;
-}
+});
+
+
+/**
+ * Dynamic AI generated chart renderer for natural language plot requests.
+ */
+export const DynamicAIChart = React.memo(function DynamicAIChart({ spec }) {
+  if (!spec || !spec.points || spec.points.length === 0) return null;
+
+  const chartType = spec.type || 'scatter';
+  const isBar = chartType === 'bar';
+
+  const xAxisConfig = isBar
+    ? {
+        type: 'category',
+        data: spec.points.map(p => String(p[0])),
+        name: spec.x_col || 'Category',
+        axisLabel: { interval: 0, rotate: 15, fontSize: 11 }
+      }
+    : {
+        type: 'value',
+        name: spec.x_col || 'X',
+        nameLocation: 'middle',
+        nameGap: 25,
+        splitLine: { lineStyle: { type: 'dashed', opacity: 0.3 } }
+      };
+
+  const seriesData = isBar
+    ? spec.points.map(p => p[1])
+    : spec.points;
+
+  const option = {
+    title: {
+      text: spec.title || `${spec.y_col || 'Y'} vs ${spec.x_col || 'X'}`,
+      left: 'center',
+      textStyle: { fontSize: 14, color: '#1E3A5F', fontWeight: 600 }
+    },
+    tooltip: {
+      trigger: isBar ? 'item' : 'axis',
+      axisPointer: { type: 'shadow' }
+    },
+    grid: { left: '8%', right: '5%', bottom: '20%', top: '15%' },
+    xAxis: xAxisConfig,
+    yAxis: {
+      type: 'value',
+      name: spec.y_col || 'Value',
+      splitLine: { lineStyle: { type: 'dashed', opacity: 0.3 } }
+    },
+    series: [
+      {
+        name: spec.title || 'Data Points',
+        type: chartType,
+        data: seriesData,
+        itemStyle: { color: isBar ? '#0070F3' : '#0F52BA', borderRadius: isBar ? [6, 6, 0, 0] : 0, opacity: 0.85 },
+        barWidth: isBar ? '40%' : undefined,
+        symbolSize: 8
+      }
+    ]
+  };
+
+  return <ReactECharts option={option} style={{ height: '340px', width: '100%' }} />;
+});
+

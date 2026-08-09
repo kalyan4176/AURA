@@ -1,24 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { CorrelationHeatmap, AnomalyScatter, ForecastAreaLine } from '../components/charts/AnalyticsCharts';
+import { CorrelationHeatmap, AnomalyScatter, DynamicAIChart } from '../components/charts/AnalyticsCharts';
 import { 
-  Bot, Send, DollarSign, Loader2, PlayCircle, BarChart3, AlertCircle, TrendingUp
+  Bot, Send, Loader2, BarChart3, AlertCircle, ShieldCheck, Download, Copy, Trash2, Sparkles, User
 } from 'lucide-react';
+
+function parseInline(str) {
+  if (!str) return '';
+  const parts = str.split('**');
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return <strong key={i} className="font-bold text-text-primary">{part}</strong>;
+    }
+    return part;
+  });
+}
+
+function renderMarkdown(text) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  return lines.map((line, idx) => {
+    let trimmed = line.trim();
+    if (!trimmed) return <div key={idx} className="h-2" />;
+    
+    if (trimmed.startsWith('### ')) {
+      return <h3 key={idx} className="text-sm font-bold text-primary mt-3 mb-1">{parseInline(trimmed.substring(4))}</h3>;
+    }
+    if (trimmed.startsWith('#### ')) {
+      return <h4 key={idx} className="text-xs font-bold text-text-primary mt-2 mb-1">{parseInline(trimmed.substring(5))}</h4>;
+    }
+    
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      return (
+        <li key={idx} className="list-disc ml-5 text-xs text-text-secondary mt-0.5">
+          {parseInline(trimmed.substring(2))}
+        </li>
+      );
+    }
+    
+    return <p key={idx} className="text-xs text-text-secondary leading-relaxed mt-1">{parseInline(trimmed)}</p>;
+  });
+}
 
 export function QueryConsole({ datasetId }) {
   const queryClient = useQueryClient();
   const [queryString, setQueryString] = useState('');
   
-  // Custom manual calculation fields
-  const [activeTab, setActiveTab] = useState('chat'); // chat, stats, anomalies, forecast
+  // Tab selector: chat, corr, anomalies
+  const [activeTab, setActiveTab] = useState('chat');
   const [corrCols, setCorrCols] = useState([]);
-  const [statTest, setStatTest] = useState('t_test');
-  const [statGroup, setStatGroup] = useState('');
-  const [statValue, setStatValue] = useState('');
   const [anomalyCols, setAnomalyCols] = useState([]);
-  const [forecastTime, setForecastTime] = useState('');
-  const [forecastVal, setForecastVal] = useState('');
+  const [anomalyAlg, setAnomalyAlg] = useState('isolation_forest');
 
   // Task execution polling states
   const [pollingTaskId, setPollingTaskId] = useState(null);
@@ -26,34 +59,80 @@ export function QueryConsole({ datasetId }) {
   const [taskResult, setTaskResult] = useState(null);
   const [taskError, setTaskError] = useState(null);
 
-  // Fetch dataset to get column configurations
+  const chatBottomRef = useRef(null);
+
+  // Fetch dataset details & column definitions
   const { data: dataset } = useQuery({
     queryKey: ['dataset_profile', datasetId],
     queryFn: () => api.get(`/workspaces/datasets/${datasetId}`),
     enabled: !!datasetId,
   });
 
-  const columns = dataset?.schema_definition?.columns || [];
-
-  // Fetch daily spend limits
-  const { data: budget = { daily_spend_usd: 0, daily_limit_usd: 10, remaining_budget_usd: 10 }, refetch: refetchBudget } = useQuery({
-    queryKey: ['budget_spend'],
-    queryFn: () => api.get('/analytics/budget/spend'),
+  // Fetch dataset rows preview for accurate anomaly plotting
+  const { data: previewData = { rows: [] } } = useQuery({
+    queryKey: ['dataset_preview', datasetId],
+    queryFn: () => api.get(`/workspaces/datasets/${datasetId}/preview`),
+    enabled: !!datasetId,
   });
 
-  // Query Chat mutation (routes directly to AI Budget Manager)
+  // Fetch persistent multi-turn chat message history
+  const { data: chatHistory = [], isLoading: isChatLoading } = useQuery({
+    queryKey: ['chat_history', datasetId],
+    queryFn: () => api.get(`/analytics/chat/${datasetId}`),
+    enabled: !!datasetId,
+  });
+
+  const columns = dataset?.schema_definition?.columns || [];
+
+  // Query Chat mutation
   const chatMutation = useMutation({
     mutationFn: (q) => api.post('/analytics/query', { dataset_id: datasetId, query: q }),
-    onSuccess: (data) => {
-      refetchBudget();
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat_history', datasetId] });
+      setQueryString('');
+    }
+  });
+
+  // Clear chat history mutation
+  const clearChatMutation = useMutation({
+    mutationFn: () => api.delete(`/analytics/chat/${datasetId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat_history', datasetId] });
     }
   });
 
   const handleChatSubmit = (e) => {
     e.preventDefault();
-    if (!queryString.trim()) return;
+    if (!queryString.trim() || chatMutation.isPending) return;
     chatMutation.mutate(queryString);
   };
+
+  const handleDownloadResponse = (content, title = 'AURA_Analysis_Report') => {
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${title}_${Date.now()}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const pollingIntervalRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'chat' && chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory, chatMutation.isPending, activeTab]);
 
   // Poll task execution helper
   const pollTask = async (taskId) => {
@@ -62,24 +141,30 @@ export function QueryConsole({ datasetId }) {
     setTaskResult(null);
     setTaskError(null);
 
-    const interval = setInterval(async () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    pollingIntervalRef.current = setInterval(async () => {
       try {
         const response = await api.get(`/analytics/tasks/${taskId}`);
         setTaskStatus(response.state);
         
         if (response.state === 'SUCCESS') {
           setTaskResult(response.result);
-          clearInterval(interval);
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
           setPollingTaskId(null);
-          refetchBudget();
         } else if (response.state === 'FAILURE') {
           setTaskError(response.error || 'Calculation execution failed.');
-          clearInterval(interval);
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
           setPollingTaskId(null);
         }
       } catch (err) {
         setTaskError('Error polling task status.');
-        clearInterval(interval);
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
         setPollingTaskId(null);
       }
     }, 1500);
@@ -100,44 +185,14 @@ export function QueryConsole({ datasetId }) {
     }
   };
 
-  const runStatisticalTest = async () => {
-    if (!statGroup || !statValue) return;
-    try {
-      const response = await api.post('/analytics/statistics-test', {
-        dataset_id: datasetId,
-        test_type: statTest,
-        group_col: statGroup,
-        value_col: statValue
-      });
-      pollTask(response.task_id);
-    } catch (e) {
-      setTaskError(e.message);
-    }
-  };
-
   const runAnomaly = async () => {
     if (anomalyCols.length === 0) return;
     try {
       const response = await api.post('/analytics/anomalies', {
         dataset_id: datasetId,
         columns: anomalyCols,
-        algorithm: 'isolation_forest',
+        algorithm: anomalyAlg,
         contamination: 0.05
-      });
-      pollTask(response.task_id);
-    } catch (e) {
-      setTaskError(e.message);
-    }
-  };
-
-  const runForecast = async () => {
-    if (!forecastTime || !forecastVal) return;
-    try {
-      const response = await api.post('/analytics/forecast', {
-        dataset_id: datasetId,
-        time_col: forecastTime,
-        value_col: forecastVal,
-        steps: 6
       });
       pollTask(response.task_id);
     } catch (e) {
@@ -162,30 +217,11 @@ export function QueryConsole({ datasetId }) {
       {/* Sidebar Controls */}
       <div className="lg:col-span-1 flex flex-col gap-6">
         
-        {/* Daily budget stats */}
-        <div className="glass-card p-5 border border-primary/10 bg-primary/2">
-          <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-            <DollarSign className="w-4 h-4" /> AI Budget Manager
-          </div>
-          <div className="flex items-baseline gap-1 mt-3">
-            <span className="text-2xl font-black text-text-primary">${budget.daily_spend_usd.toFixed(4)}</span>
-            <span className="text-xs text-text-secondary">/ ${budget.daily_limit_usd.toFixed(2)} spent</span>
-          </div>
-
-          {/* Budget progress bar */}
-          <div className="w-full bg-white/10 rounded-full h-1.5 mt-3 overflow-hidden">
-            <div 
-              className="bg-primary h-1.5 transition-all duration-500" 
-              style={{ width: `${(budget.daily_spend_usd / budget.daily_limit_usd) * 100}%` }}
-            />
-          </div>
-        </div>
-
         {/* Navigation Selector */}
         <div className="glass-card p-4 flex flex-col gap-1">
           <button 
             onClick={() => { setActiveTab('chat'); setTaskResult(null); }}
-            className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${activeTab === 'chat' ? 'bg-primary text-black' : 'text-text-secondary hover:bg-white/5'}`}
+            className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${activeTab === 'chat' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-white/5'}`}
           >
             <Bot className="w-4 h-4" /> AI Narrative Console
           </button>
@@ -194,28 +230,26 @@ export function QueryConsole({ datasetId }) {
 
           <button 
             onClick={() => { setActiveTab('corr'); setTaskResult(null); }}
-            className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${activeTab === 'corr' ? 'bg-primary text-black' : 'text-text-secondary hover:bg-white/5'}`}
+            className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${activeTab === 'corr' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-white/5'}`}
           >
             <BarChart3 className="w-4 h-4" /> Correlation Matrix
           </button>
           <button 
-            onClick={() => { setActiveTab('stats'); setTaskResult(null); }}
-            className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${activeTab === 'stats' ? 'bg-primary text-black' : 'text-text-secondary hover:bg-white/5'}`}
-          >
-            <PlayCircle className="w-4 h-4" /> Hypothesis Tests
-          </button>
-          <button 
             onClick={() => { setActiveTab('anomalies'); setTaskResult(null); }}
-            className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${activeTab === 'anomalies' ? 'bg-primary text-black' : 'text-text-secondary hover:bg-white/5'}`}
+            className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${activeTab === 'anomalies' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-white/5'}`}
           >
             <AlertCircle className="w-4 h-4" /> Anomaly Detection
           </button>
-          <button 
-            onClick={() => { setActiveTab('forecast'); setTaskResult(null); }}
-            className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${activeTab === 'forecast' ? 'bg-primary text-black' : 'text-text-secondary hover:bg-white/5'}`}
-          >
-            <TrendingUp className="w-4 h-4" /> Time-Series Forecast
-          </button>
+        </div>
+
+        {/* Privacy Shield Info Badge */}
+        <div className="glass-card p-4 flex flex-col gap-2 border border-emerald-500/30 bg-emerald-500/5">
+          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
+            <ShieldCheck className="w-4 h-4" /> Privacy Shield Active
+          </div>
+          <p className="text-[11px] text-text-secondary leading-relaxed">
+            Raw Parquet dataset rows are stored strictly in your local workspace and are <b>never used to train AI foundation models</b>. Only aggregated metadata or code outputs are ephemerally processed.
+          </p>
         </div>
 
       </div>
@@ -223,35 +257,158 @@ export function QueryConsole({ datasetId }) {
       {/* Main calculation workspace */}
       <div className="lg:col-span-3 flex flex-col gap-6">
         
-        {/* Input parameters card */}
+        {/* Main Console Workspace */}
         <div className="glass-card p-6 flex flex-col gap-4">
-          <h2 className="text-base font-bold text-text-primary border-b border-border pb-2 capitalize">
-            {activeTab} Console
-          </h2>
+          
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <h2 className="text-base font-bold text-text-primary capitalize flex items-center gap-2">
+              {activeTab === 'corr' ? 'Correlation Matrix' : activeTab === 'anomalies' ? 'Anomaly Detection' : 'AI Narrative Console'}
+            </h2>
 
-          {activeTab === 'chat' && (
-            <form onSubmit={handleChatSubmit} className="flex gap-2">
-              <input 
-                type="text"
-                value={queryString}
-                onChange={(e) => setQueryString(e.target.value)}
-                placeholder="Ask AURA to query stats, calculate averages, explain trends..."
-                className="flex-1 bg-black/40 border border-border rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-primary placeholder-text-secondary/60"
-              />
+            {activeTab === 'chat' && chatHistory.length > 0 && (
               <button 
-                type="submit"
-                disabled={chatMutation.isPending}
-                className="px-5 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-black font-bold rounded-xl flex items-center justify-center transition-all"
+                onClick={() => clearChatMutation.mutate()}
+                disabled={clearChatMutation.isPending}
+                className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-all font-semibold"
               >
-                {chatMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
+                <Trash2 className="w-3.5 h-3.5" /> Clear Session
               </button>
-            </form>
+            )}
+          </div>
+
+          {/* AI Narrative Console Interactive Chat Thread */}
+          {activeTab === 'chat' && (
+            <div className="flex flex-col gap-6">
+              
+              {/* Chat Thread Container */}
+              <div className="flex flex-col gap-4 max-h-[550px] overflow-y-auto pr-2 pt-2">
+                {chatHistory.length === 0 && !isChatLoading && (
+                  <div className="p-8 text-center flex flex-col items-center justify-center gap-3 border border-dashed border-border rounded-xl bg-white/5">
+                    <Sparkles className="w-8 h-8 text-primary/60 animate-pulse" />
+                    <h3 className="text-sm font-bold text-text-primary">Start an Interactive Analysis Session</h3>
+                    <p className="text-xs text-text-secondary max-w-md">
+                      Ask AURA to calculate metrics, explain column behaviors, or request charts like <i>"give me a chart on Amount vs Time"</i>.
+                    </p>
+                  </div>
+                )}
+
+                {chatHistory.map((msg) => (
+                  <div key={msg.id} className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    
+                    {/* Role Header */}
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-text-secondary uppercase tracking-wider px-1">
+                      {msg.role === 'user' ? (
+                        <>User <User className="w-3.5 h-3.5 text-secondary" /></>
+                      ) : (
+                        <><Bot className="w-3.5 h-3.5 text-primary" /> AURA Intelligence</>
+                      )}
+                    </div>
+
+                    {/* Message Content Bubble */}
+                    <div className={`p-4 rounded-2xl max-w-2xl border text-xs leading-relaxed flex flex-col gap-3 ${
+                      msg.role === 'user' 
+                        ? 'bg-primary text-white border-primary/30 rounded-tr-none' 
+                        : 'bg-white/10 text-text-primary border-border rounded-tl-none shadow-sm'
+                    }`}>
+                      
+                      {/* Markdown Narrative */}
+                      <div>{msg.role === 'user' ? msg.content : renderMarkdown(msg.content)}</div>
+
+                      {/* SQL Code Block */}
+                      {msg.query_executed && (
+                        <div className="text-[11px] font-mono text-text-secondary bg-black/40 p-2.5 rounded-lg border border-border mt-1">
+                          <b className="text-primary">Executed SQL:</b> {msg.query_executed}
+                        </div>
+                      )}
+
+                      {/* Interactive AI EChart Component */}
+                      {msg.chart_spec && (
+                        <div className="bg-white p-3 rounded-xl border border-border mt-2 shadow-inner">
+                          <DynamicAIChart spec={msg.chart_spec} />
+                        </div>
+                      )}
+
+                      {/* Assistant Actions Bar */}
+                      {msg.role === 'assistant' && (
+                        <div className="flex items-center justify-end gap-2 border-t border-border/40 pt-2.5 mt-1 text-[11px]">
+                          <button
+                            onClick={() => handleDownloadResponse(msg.content)}
+                            className="flex items-center gap-1 text-primary font-bold hover:underline"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Export Response (.md)
+                          </button>
+                        </div>
+                      )}
+
+                    </div>
+                  </div>
+                ))}
+
+                {chatMutation.isPending && (
+                  <div className="flex items-start gap-2">
+                    <Bot className="w-4 h-4 text-primary animate-bounce" />
+                    <div className="p-4 rounded-2xl bg-white/10 text-text-secondary border border-border text-xs flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" /> AURA is generating narrative insights & executing SQL queries...
+                    </div>
+                  </div>
+                )}
+
+                <div ref={chatBottomRef} />
+              </div>
+
+              {/* AI Recommended Chart Chips */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+                <span className="text-[11px] font-bold text-text-secondary flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" /> Suggested Visualizations:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setQueryString('bar chart of average Amount by Class'); }}
+                  className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-full text-[11px] font-semibold transition-all"
+                >
+                  📊 Bar: Average Amount by Class
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setQueryString('chart on Amount vs Time'); }}
+                  className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-full text-[11px] font-semibold transition-all"
+                >
+                  📈 Scatter: Amount vs Time
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setQueryString('distribution of Amount'); }}
+                  className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-full text-[11px] font-semibold transition-all"
+                >
+                  📊 Distribution: Amount
+                </button>
+              </div>
+
+              {/* Chat Input Form */}
+              <form onSubmit={handleChatSubmit} className="flex gap-2">
+                <input 
+                  type="text"
+                  value={queryString}
+                  onChange={(e) => setQueryString(e.target.value)}
+                  placeholder="Ask AURA to query stats, generate a chart (e.g. Amount vs Time), or explain findings..."
+                  className="flex-1 bg-white border border-border rounded-xl px-4 py-3 text-xs text-text-primary focus:outline-none focus:border-primary placeholder-text-secondary/60"
+                />
+                <button 
+                  type="submit"
+                  disabled={chatMutation.isPending}
+                  className="p-3 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-white rounded-xl transition-all flex items-center justify-center font-bold"
+                >
+                  {chatMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                </button>
+              </form>
+
+            </div>
           )}
 
           {activeTab === 'corr' && (
             <div className="flex flex-col gap-4">
-              <p className="text-xs text-text-secondary opacity-80">Select numeric columns to compute correlations:</p>
-              <div className="flex flex-wrap gap-4 bg-black/20 p-4 rounded-xl border border-border">
+              <p className="text-xs text-text-secondary opacity-80">Select numeric columns to compute Pearson coefficients:</p>
+              <div className="flex flex-wrap gap-4 bg-white/20 p-4 rounded-xl border border-border">
                 {columns.filter(c => ['integer', 'float'].includes(c.data_type)).map(c => (
                   <label key={c.name} className="flex items-center gap-2 text-xs text-text-primary cursor-pointer">
                     <input 
@@ -267,61 +424,9 @@ export function QueryConsole({ datasetId }) {
               <button 
                 onClick={runCorrelation}
                 disabled={corrCols.length < 2 || !!pollingTaskId}
-                className="w-fit px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-black font-bold rounded-xl transition-all"
+                className="w-fit px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-white font-bold rounded-xl transition-all text-xs"
               >
                 Trigger Correlation Matrix
-              </button>
-            </div>
-          )}
-
-          {activeTab === 'stats' && (
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-secondary">Hypothesis Test Type</label>
-                  <select 
-                    value={statTest} 
-                    onChange={(e) => setStatTest(e.target.value)}
-                    className="bg-black/40 border border-border rounded px-3 py-2 text-xs text-text-primary focus:outline-none"
-                  >
-                    <option value="t_test">Welch's 2-Sample T-Test</option>
-                    <option value="anova">One-way ANOVA (F-Test)</option>
-                    <option value="mann_whitney">Mann-Whitney U Test</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-secondary">Group Column (Categorical)</label>
-                  <select 
-                    value={statGroup} 
-                    onChange={(e) => setStatGroup(e.target.value)}
-                    className="bg-black/40 border border-border rounded px-3 py-2 text-xs text-text-primary focus:outline-none"
-                  >
-                    <option value="">-- Choose column --</option>
-                    {columns.filter(c => ['string', 'boolean'].includes(c.data_type)).map(c => (
-                      <option key={c.name} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-secondary">Value Column (Numeric)</label>
-                  <select 
-                    value={statValue} 
-                    onChange={(e) => setStatValue(e.target.value)}
-                    className="bg-black/40 border border-border rounded px-3 py-2 text-xs text-text-primary focus:outline-none"
-                  >
-                    <option value="">-- Choose column --</option>
-                    {columns.filter(c => ['integer', 'float'].includes(c.data_type)).map(c => (
-                      <option key={c.name} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <button 
-                onClick={runStatisticalTest}
-                disabled={!statGroup || !statValue || !!pollingTaskId}
-                className="w-fit px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-black font-bold rounded-xl transition-all"
-              >
-                Execute Hypothesis Test
               </button>
             </div>
           )}
@@ -329,7 +434,7 @@ export function QueryConsole({ datasetId }) {
           {activeTab === 'anomalies' && (
             <div className="flex flex-col gap-4">
               <p className="text-xs text-text-secondary opacity-80">Select numeric columns to scan for anomalies:</p>
-              <div className="flex flex-wrap gap-4 bg-black/20 p-4 rounded-xl border border-border">
+              <div className="flex flex-wrap gap-4 bg-white/20 p-4 rounded-xl border border-border">
                 {columns.filter(c => ['integer', 'float'].includes(c.data_type)).map(c => (
                   <label key={c.name} className="flex items-center gap-2 text-xs text-text-primary cursor-pointer">
                     <input 
@@ -342,52 +447,24 @@ export function QueryConsole({ datasetId }) {
                   </label>
                 ))}
               </div>
+              <div className="flex flex-col gap-1.5 w-fit">
+                <label className="text-xs text-text-secondary font-semibold">Anomaly Detection Algorithm</label>
+                <select
+                  value={anomalyAlg}
+                  onChange={(e) => setAnomalyAlg(e.target.value)}
+                  className="bg-white border border-border rounded px-3 py-2 text-xs text-text-primary focus:outline-none"
+                >
+                  <option value="isolation_forest">Isolation Forest (Spatial Trees)</option>
+                  <option value="lof">Local Outlier Factor (Density-based)</option>
+                  <option value="one_class_svm">One-Class SVM (Hyperplane fitting)</option>
+                </select>
+              </div>
               <button 
                 onClick={runAnomaly}
                 disabled={anomalyCols.length === 0 || !!pollingTaskId}
-                className="w-fit px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-black font-bold rounded-xl transition-all"
+                className="w-fit px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-white font-bold rounded-xl transition-all text-xs"
               >
-                Scan Outliers (Isolation Forest)
-              </button>
-            </div>
-          )}
-
-          {activeTab === 'forecast' && (
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-secondary">Time / Horizon Column</label>
-                  <select 
-                    value={forecastTime} 
-                    onChange={(e) => setForecastTime(e.target.value)}
-                    className="bg-black/40 border border-border rounded px-3 py-2 text-xs text-text-primary focus:outline-none"
-                  >
-                    <option value="">-- Choose column --</option>
-                    {columns.map(c => (
-                      <option key={c.name} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-secondary">Value Column (Numeric)</label>
-                  <select 
-                    value={forecastVal} 
-                    onChange={(e) => setForecastVal(e.target.value)}
-                    className="bg-black/40 border border-border rounded px-3 py-2 text-xs text-text-primary focus:outline-none"
-                  >
-                    <option value="">-- Choose column --</option>
-                    {columns.filter(c => ['integer', 'float'].includes(c.data_type)).map(c => (
-                      <option key={c.name} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <button 
-                onClick={runForecast}
-                disabled={!forecastTime || !forecastVal || !!pollingTaskId}
-                className="w-fit px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-black font-bold rounded-xl transition-all"
-              >
-                Calculate Time-Series Forecasts
+                Scan Outliers (ML Model)
               </button>
             </div>
           )}
@@ -409,25 +486,7 @@ export function QueryConsole({ datasetId }) {
           </div>
         )}
 
-        {/* Results output section */}
-        {chatMutation.data && activeTab === 'chat' && (
-          <div className="glass-card p-6 flex flex-col gap-4">
-            <div className="flex items-center gap-2 border-b border-border pb-2 text-xs text-text-secondary uppercase tracking-widest font-bold">
-              <Bot className="w-4 h-4 text-primary" /> AURA Decision Narrative
-            </div>
-            
-            <div className="p-4 bg-white/5 rounded-xl border border-border text-sm leading-relaxed text-text-primary">
-              {chatMutation.data.response || chatMutation.data.explanation}
-            </div>
-
-            {chatMutation.data.source === 'deterministic_sql' && chatMutation.data.data?.query_executed && (
-              <div className="text-xs font-mono text-text-secondary bg-black/40 p-3 rounded-lg border border-border">
-                <b>Execution SQL Query:</b> {chatMutation.data.data.query_executed}
-              </div>
-            )}
-          </div>
-        )}
-
+        {/* Results output section for Deterministic Engines */}
         {taskResult && (
           <div className="glass-card p-6 flex flex-col gap-4">
             <div className="border-b border-border pb-2 text-xs text-text-secondary uppercase tracking-widest font-bold">
@@ -440,55 +499,17 @@ export function QueryConsole({ datasetId }) {
               </div>
             )}
 
-            {activeTab === 'stats' && (
-              <div className="flex flex-col gap-4">
-                <div className="p-4 bg-white/5 border border-border rounded-xl">
-                  <h4 className="text-sm font-bold text-text-primary">{taskResult.test_name}</h4>
-                  <div className="grid grid-cols-2 gap-4 mt-3 text-xs text-text-secondary">
-                    <div>Statistic: <b className="text-text-primary">{taskResult.statistic.toFixed(4)}</b></div>
-                    <div>P-Value: <b className="text-text-primary">{taskResult.p_value.toFixed(5)}</b></div>
-                  </div>
-                  <div className="mt-3 text-xs font-semibold text-primary">
-                    Significant: {taskResult.is_significant ? 'Yes (Confidence Interval >95%)' : 'No'}
-                  </div>
-                </div>
-                <div className="text-sm p-4 bg-white/5 border border-border rounded-xl">
-                  {taskResult.business_explanation}
-                </div>
-              </div>
-            )}
-
             {activeTab === 'anomalies' && (
               <div className="flex flex-col gap-4">
                 <div className="p-4 bg-white/5 border border-border rounded-xl">
                   <h4 className="text-sm font-bold text-text-primary">Anomaly Summary</h4>
-                  <p className="text-xs text-text-secondary mt-1">{taskResult.summary}</p>
+                  <div className="text-xs text-text-secondary mt-1 whitespace-pre-wrap">{taskResult.summary}</div>
                 </div>
-                {/* Visual scatter (mocking original rows preview to chart points) */}
                 <AnomalyScatter 
-                  rows={dataset?.quality_report?.total_rows ? Array.from({length: dataset.quality_report.total_rows}, (_, i) => ({
-                    [anomalyCols[0]]: Math.random() * 100, // mock fallback
-                    [anomalyCols[1] || anomalyCols[0]]: Math.random() * 100
-                  })) : []} 
+                  rows={previewData?.rows || []} 
                   columns={anomalyCols} 
                   anomalyIndices={taskResult.anomaly_indices} 
-                />
-              </div>
-            )}
-
-            {activeTab === 'forecast' && (
-              <div className="flex flex-col gap-4">
-                <div className="p-4 bg-white/5 border border-border rounded-xl">
-                  <h4 className="text-sm font-bold text-text-primary">Projections Model</h4>
-                  <p className="text-xs text-text-secondary mt-1">{taskResult.model_details}</p>
-                </div>
-                <ForecastAreaLine 
-                  timeline={taskResult.timeline} 
-                  historicalValues={taskResult.historical_values} 
-                  forecastTimeline={taskResult.forecast_timeline} 
-                  forecastValues={taskResult.forecast_values} 
-                  lowerBounds={taskResult.lower_confidence_bounds} 
-                  upperBounds={taskResult.upper_confidence_bounds} 
+                  plotData={taskResult.plot_data}
                 />
               </div>
             )}

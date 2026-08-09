@@ -102,7 +102,7 @@ function MainAppContent() {
 
             <button 
               type="submit"
-              className="mt-2 w-full bg-primary hover:bg-primary-hover text-black font-extrabold rounded-xl py-3 text-sm transition-all flex items-center justify-center gap-2"
+              className="mt-2 w-full bg-primary hover:bg-primary-hover text-white font-extrabold rounded-xl py-3 text-sm transition-all flex items-center justify-center gap-2"
             >
               <LogIn className="w-4 h-4" /> {isRegisterMode ? 'Register' : 'Authenticate'}
             </button>
@@ -124,47 +124,36 @@ function MainAppContent() {
     <div className="min-h-screen bg-background text-text-primary">
       
       {/* Navigation Headers */}
-      <nav className="glass-nav sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+      <nav className="glass-nav sticky top-0 z-50 px-6 py-4 flex flex-col lg:flex-row gap-4 items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-xl font-black text-gradient tracking-tight">AURA</span>
           <span className="bg-white/5 border border-border rounded px-2 py-0.5 text-[10px] text-text-secondary uppercase tracking-widest font-bold">Portal v1</span>
         </div>
 
         {isAuthenticated && (
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
             
             {/* View navigation switches */}
-            {activeWorkspaceId && (
+            {activeWorkspaceId && activeDatasetId && (
               <div className="flex border border-border rounded-lg overflow-hidden bg-white/2">
                 <button 
-                  onClick={() => { setActiveDatasetId(null); setSubView('reports'); }}
-                  className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-all ${subView === 'reports' && !activeDatasetId ? 'bg-primary text-black' : 'text-text-secondary hover:bg-white/5'}`}
+                  onClick={() => setSubView('dashboard')}
+                  className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-all ${subView === 'dashboard' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-white/5'}`}
                 >
-                  <FileText className="w-3.5 h-3.5" /> Workspace Reports
+                  <Activity className="w-3.5 h-3.5" /> Profiler
                 </button>
-                
-                {activeDatasetId && (
-                  <>
-                    <button 
-                      onClick={() => setSubView('dashboard')}
-                      className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-all border-l border-border ${subView === 'dashboard' ? 'bg-primary text-black' : 'text-text-secondary hover:bg-white/5'}`}
-                    >
-                      <Activity className="w-3.5 h-3.5" /> Profiler
-                    </button>
-                    <button 
-                      onClick={() => setSubView('query')}
-                      className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-all border-l border-border ${subView === 'query' ? 'bg-primary text-black' : 'text-text-secondary hover:bg-white/5'}`}
-                    >
-                      <Terminal className="w-3.5 h-3.5" /> Query Console
-                    </button>
-                  </>
-                )}
+                <button 
+                  onClick={() => setSubView('query')}
+                  className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-all border-l border-border ${subView === 'query' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-white/5'}`}
+                >
+                  <Terminal className="w-3.5 h-3.5" /> Query Console
+                </button>
               </div>
             )}
 
             <button 
               onClick={() => { setActiveDatasetId(null); setActiveWorkspaceId(null); setSubView('diagnostics'); }}
-              className={`px-3.5 py-1.5 border border-border rounded-lg text-xs transition-all flex items-center gap-1.5 ${subView === 'diagnostics' ? 'bg-primary text-black border-primary' : 'bg-white/5 text-text-secondary hover:bg-white/10'}`}
+              className={`px-3.5 py-1.5 border border-border rounded-lg text-xs transition-all flex items-center gap-1.5 ${subView === 'diagnostics' ? 'bg-primary text-white border-primary' : 'bg-white/5 text-text-secondary hover:bg-white/10'}`}
             >
               <Activity className="w-4 h-4" /> System Health
             </button>
@@ -195,8 +184,6 @@ function MainAppContent() {
           <Diagnostics />
         ) : !activeWorkspaceId ? (
           <Workspaces onSelectDataset={(dId, wsId) => { setActiveDatasetId(dId); setActiveWorkspaceId(wsId); setSubView('dashboard'); }} />
-        ) : subView === 'reports' ? (
-          <Reports workspaceId={activeWorkspaceId} />
         ) : subView === 'dashboard' ? (
           <Dashboard datasetId={activeDatasetId} onBack={() => setActiveDatasetId(null)} />
         ) : (

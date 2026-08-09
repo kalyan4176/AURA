@@ -5,6 +5,7 @@ import polars as pl
 from scipy import stats
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
+from sklearn.svm import OneClassSVM
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from loguru import logger
 
@@ -143,16 +144,25 @@ class AnalyticsService:
         """Run anomaly detection using Isolation Forest or Local Outlier Factor."""
         logger.info(f"Running ML anomaly detection ({algorithm}) on columns {columns}")
         
-        # Load dataset, fill null values with mean/median to satisfy ML model inputs
+        # Load dataset and fill nulls natively in Polars with column mean (or 0.0 if entirely null)
         df = pl.scan_parquet(file_path).select(columns).collect()
         
-        # Convert to numpy and fill NaNs
-        X = df.to_numpy().copy()
-        col_means = np.nanmean(X, axis=0)
-        # Handle cases where columns are entirely NaN
-        col_means = np.nan_to_num(col_means)
-        inds = np.where(np.isnan(X))
-        X[inds] = np.take(col_means, inds[1])
+        # Ensure selected columns are numeric to prevent ML fitting crashes
+        for col in columns:
+            dtype = df.get_column(col).dtype
+            if not dtype.is_numeric():
+                raise ValueError(f"Column '{col}' is of non-numeric type ({dtype}). Outlier models require numeric input.")
+        
+        filled_cols = []
+        for col in columns:
+            col_series = df.get_column(col)
+            mean_val = col_series.mean()
+            if mean_val is None or math.isnan(mean_val):
+                mean_val = 0.0
+            filled_cols.append(col_series.fill_null(mean_val))
+            
+        df = pl.DataFrame(filled_cols)
+        X = df.to_numpy()
         
         if len(X) < 5:
             raise ValueError("Too few records for anomaly detection model (minimum 5 required).")
@@ -174,6 +184,13 @@ class AnalyticsService:
             min_s, max_s = np.min(negative_outlier_factor), np.max(negative_outlier_factor)
             span = (max_s - min_s) if max_s != min_s else 1.0
             confidence = [float(1.0 - (s - min_s) / span) for s in negative_outlier_factor]
+        elif algorithm == "one_class_svm":
+            model = OneClassSVM(nu=contamination, kernel="rbf", gamma="scale")
+            preds = model.fit_predict(X)
+            scores = model.score_samples(X)
+            min_s, max_s = np.min(scores), np.max(scores)
+            span = (max_s - min_s) if max_s != min_s else 1.0
+            confidence = [float(1.0 - (s - min_s) / span) for s in scores]
         else:
             raise ValueError(f"Unsupported anomaly algorithm: {algorithm}")
 
@@ -182,21 +199,88 @@ class AnalyticsService:
         total_anomalies = len(anomaly_indices)
         pct = (total_anomalies / len(X)) * 100
 
+        # Select first two columns for plotting
+        plot_col_x = columns[0]
+        plot_col_y = columns[1] if len(columns) > 1 else columns[0]
+        
+        plot_data = []
+        step = max(1, len(df) // 1000)
+        for i in range(0, len(df), step):
+            if len(plot_data) >= 1000:
+                break
+            val_x = float(df.get_column(plot_col_x)[i]) if df.get_column(plot_col_x)[i] is not None else 0.0
+            val_y = float(df.get_column(plot_col_y)[i]) if df.get_column(plot_col_y)[i] is not None else 0.0
+            is_anomaly = bool(preds[i] == -1)
+            plot_data.append({
+                "x": val_x,
+                "y": val_y,
+                "is_anomaly": is_anomaly,
+                "row_index": i
+            })
+
+        avg_conf = 0.0
         if total_anomalies > 0:
             avg_conf = float(np.mean([confidence[i] for i in anomaly_indices]))
-            summary = (
-                f"Detected {total_anomalies} anomalies ({pct:.2f}% of data) using {algorithm.upper()}. "
-                f"Average confidence index for flagged outliers is {avg_conf:.2f}."
+            
+        base_summary = f"Detected {total_anomalies} anomalies ({pct:.2f}% of data) using {algorithm.upper()}."
+        if total_anomalies > 0:
+            base_summary += f" Average confidence index for flagged outliers is {avg_conf:.2f}."
+
+        summary = base_summary
+        
+        # Call Gemini to generate a professional, evidence-backed narrative summary
+        try:
+            import asyncio
+            import threading
+            from app.application.budget.services import ai_budget_manager
+            
+            evidence_prompt = (
+                f"Explain the business implications of finding {total_anomalies} anomalies ({pct:.2f}% of data) "
+                f"using the ML algorithm '{algorithm.upper()}' on columns: {columns}. "
+                f"Confidence scores for these anomalies average {avg_conf:.2f}. "
+                f"Provide a concise, professional evidence-based explanation of these findings, "
+                f"highlighting potential data quality risks and corporate decision recommendations."
             )
-        else:
-            summary = f"No anomalies detected using {algorithm.upper()}."
+            
+            result_container = {}
+            def worker():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    res = loop.run_until_complete(
+                        ai_budget_manager.execute_query(
+                            dataset_path=file_path,
+                            user_query=evidence_prompt
+                        )
+                    )
+                    result_container["response"] = res
+                except Exception as ex:
+                    result_container["error"] = ex
+                finally:
+                    loop.close()
+
+            t = threading.Thread(target=worker)
+            t.start()
+            t.join()
+
+            if "error" in result_container:
+                raise result_container["error"]
+
+            response = result_container.get("response", {})
+            ai_resp = response.get("response", "")
+            if ai_resp and "unable to generate" not in ai_resp.lower() and "budget_blocker" not in response.get("source", ""):
+                # Combine the structural metric with the AI explanation
+                summary = f"{base_summary}\n\n{ai_resp}"
+        except Exception as e:
+            logger.warning(f"Failed generating AI summary for anomalies: {e}")
 
         return AnomalyReport(
             total_anomalies=total_anomalies,
             anomaly_percentage=pct,
             anomaly_indices=anomaly_indices,
             confidence_scores=[confidence[i] for i in anomaly_indices],
-            summary=summary
+            summary=summary,
+            plot_data=plot_data
         )
 
     @staticmethod
