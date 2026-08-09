@@ -4,6 +4,13 @@
 
 ---
 
+## 🌐 Live Production Deployment
+
+* 💻 **Frontend Web App (Vercel)**: **[https://aura-ten-sage-49.vercel.app/](https://aura-ten-sage-49.vercel.app/)**
+* ⚡ **Backend API Server (Render)**: **[https://aura-pyra.onrender.com/](https://aura-pyra.onrender.com/)**
+
+---
+
 ## 🌟 Unique Selling Propositions (USPs)
 
 ### 1. 🔒 Zero-Leak Privacy Shield (Zero LLM Training Guarantee)
@@ -17,6 +24,7 @@
 ### 3. 📊 Attribute-Type Smart Visualizer
 * **Intelligent Chart Selection**: Automatically inspects column cardinality and data types before rendering to prevent squished visualizations.
 * **Categorical vs Continuous Pairings**: Converts categorical pairings (e.g. `Class` vs `Amount`) into clean grouped **Bar Charts**, while continuous metrics (`Amount` vs `Time`) render high-density **Scatter Plots** using ECharts.
+* **Smart Histogram Binning**: Calculates 10-bin frequency ranges for single numeric distribution queries (`distribution of Amount`) to eliminate text clutter.
 * **AI Suggested Visualizations**: Features one-click recommendation chips for instant high-impact chart generation.
 
 ### 4. 💬 Persistent Multi-Turn AI Chat & Exportable Reports
@@ -41,17 +49,24 @@
 
 ---
 
-## 🚀 Quickstart Guide
+## 🚀 Deployment Guide
 
-### 1. Prerequisites
-* Python 3.10+
-* Node.js 18+
+### Option 1: Cloud Deployment (Vercel + Render)
+1. **Backend (Render)**: Deploy `backend/Dockerfile` with environment variable `GEMINI_API_KEY`.
+2. **Frontend (Vercel)**: Deploy `frontend` root directory with `VITE_API_URL=https://aura-pyra.onrender.com/api`.
 
-### 2. Backend Setup
+### Option 2: Docker Compose (Local / VPS)
 ```bash
-# Navigate to project root
-cd "AURA"
+# Build and run containers in background
+docker-compose up --build -d
+```
 
+---
+
+## 💻 Local Developer Setup
+
+### 1. Backend Setup
+```bash
 # Activate virtual environment
 venv\Scripts\activate
 
@@ -60,7 +75,7 @@ python backend/start_server.py
 ```
 *Backend runs on `http://127.0.0.1:8000`.*
 
-### 3. Frontend Setup
+### 2. Frontend Setup
 ```bash
 # Navigate to frontend folder
 cd frontend
@@ -74,8 +89,6 @@ npm run dev
 ---
 
 ## 🧪 Running Automated Tests
-
-AURA includes unit and integration tests covering telemetry, budget manager, data ingestion, and alerting pipelines:
 
 ```bash
 # Run pytest suite
