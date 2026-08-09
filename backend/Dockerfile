@@ -19,6 +19,8 @@ RUN pip install --no-cache-dir \
     sqlalchemy \
     aiosqlite \
     pydantic \
+    pydantic-settings \
+    python-multipart \
     google-generativeai \
     loguru \
     python-dotenv \
@@ -27,6 +29,7 @@ RUN pip install --no-cache-dir \
     pytest \
     "passlib[argon2]" \
     pyjwt
+
 
 # Copy application backend code
 COPY backend /app/backend
