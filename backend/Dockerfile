@@ -9,39 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies directly
-RUN pip install --no-cache-dir \
-    fastapi \
-    uvicorn \
-    duckdb \
-    polars \
-    scikit-learn \
-    sqlalchemy \
-    aiosqlite \
-    pydantic \
-    "pydantic[email]" \
-    email-validator \
-    pydantic-settings \
-    python-multipart \
-    google-generativeai \
-    loguru \
-    python-dotenv \
-    pandas \
-    numpy \
-    pytest \
-    "passlib[argon2]" \
-    "python-jose[cryptography]" \
-    pyjwt \
-    redis \
-    celery \
-    httpx \
-    prometheus-client
-
-
-
-
-
-
+# Copy requirements file and install dependencies
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copy application backend code
 COPY backend /app/backend
 
