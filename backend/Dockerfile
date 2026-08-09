@@ -31,7 +31,10 @@ RUN pip install --no-cache-dir \
     pytest \
     "passlib[argon2]" \
     "python-jose[cryptography]" \
-    pyjwt
+    pyjwt \
+    redis \
+    celery
+
 
 
 
