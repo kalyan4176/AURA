@@ -29,6 +29,17 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+@app.get("/healthz")
+async def root_health_check():
+    return {
+        "status": "online",
+        "service": "AURA Decision Intelligence Engine",
+        "version": "1.0.0"
+    }
+
+
+
 @app.on_event("startup")
 async def startup_db_init():
     """Initializes tables on startup if in development to speed up developer setup."""
