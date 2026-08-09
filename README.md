@@ -1,140 +1,89 @@
-# AURA — Autonomous Unified Reasoning Analytics
+# ⚡ AURA — Enterprise Decision Intelligence & Privacy-First Analytics Platform
 
-AURA is a production-grade, enterprise-ready **Decision Intelligence Platform** built using a Python FastAPI modular monolith architecture and a React JS frontend. 
-
-It enables organizations to ingest datasets, analyze data quality, run heavy statistical/ML calculations asynchronously, and build collaborative analytical reports backed by cost-optimized AI narration gateway decisions.
+> **AURA** (Autonomous RAG Analytics) is a high-performance decision intelligence platform engineered for zero-trust enterprise environments. It combines **local DuckDB SQL execution**, **privacy-shielded RAG architecture**, **persistent multi-turn AI chat**, and **intelligent dynamic visualization engines**.
 
 ---
 
-## 🚀 Architecture Overview
+## 🌟 Unique Selling Propositions (USPs)
 
-AURA enforces **Clean Architecture** patterns separating the domain layer, application services, infrastructure adapters, and presentation endpoints.
+### 1. 🔒 Zero-Leak Privacy Shield (Zero LLM Training Guarantee)
+* **100% Local Data Isolation**: Raw dataset rows (CSVs / Parquet files) are saved in private binary storage on your machine and are **NEVER transmitted to external LLMs** or used for AI foundation model training.
+* **Ephemeral RAG Metadata Architecture**: AURA executes heavy calculations locally via DuckDB. Only small, aggregated numerical summaries (e.g., `"Average Amount = $122.21"`) or sampled coordinate vectors (up to 400 points) are passed as prompt context.
 
-```
-                  +-----------------------------------+
-                  |        React JS Frontend          |
-                  |  (Tailwind + ECharts + AG Grid)   |
-                  +-----------------------------------+
-                                    |
-                            (REST HTTP / JSON)
-                                    v
-                  +-----------------------------------+
-                  |          FastAPI Backend          |
-                  |     (Uvicorn HTTP Web Nodes)      |
-                  +-----------------------------------+
-                    /        |              |        \
-                   /         |              |         \
-                  v          v              v          v
-   +--------------+  +---------------+  +-------+  +---------------+
-   | PostgreSQL   |  | In-Memory     |  | Redis |  | Local Ollama  |
-   | (Metadata /  |  | DuckDB &      |  | Cache |  | / Cloud LLM   |
-   | Workspace DB)|  | Polars Engine)|  | Broker|  | (Gemini) API  |
-   +--------------+  +---------------+  +-------+  +---------------+
-                                            |
-                                            v
-                                    +---------------+
-                                    | Celery Worker |
-                                    | (heavy stats /|
-                                    | ML forecasting|
-                                    +---------------+
-```
+### 2. ⚡ Millisecond Local Text-to-SQL Engine (DuckDB + Polars)
+* **Instant Sub-10ms Queries**: Translates natural language questions into optimized DuckDB SQL queries.
+* **Scales to Millions of Rows**: Process massive datasets (such as the 284,807-row Kaggle Credit Card Fraud dataset) without hitting API token rate limits, token cost bloat, or memory crashes.
+
+### 3. 📊 Attribute-Type Smart Visualizer
+* **Intelligent Chart Selection**: Automatically inspects column cardinality and data types before rendering to prevent squished visualizations.
+* **Categorical vs Continuous Pairings**: Converts categorical pairings (e.g. `Class` vs `Amount`) into clean grouped **Bar Charts**, while continuous metrics (`Amount` vs `Time`) render high-density **Scatter Plots** using ECharts.
+* **AI Suggested Visualizations**: Features one-click recommendation chips for instant high-impact chart generation.
+
+### 4. 💬 Persistent Multi-Turn AI Chat & Exportable Reports
+* **Multi-Turn Conversation Threads**: Ask follow-up questions, run iterative analysis, and review persistent chat history per workspace or dataset.
+* **One-Click Markdown Exporter**: Download any AI analysis report, SQL query breakdown, or executive decision impact summary directly as a formatted `.md` file.
+
+### 5. 🤖 Multi-Algorithm Machine Learning Outlier Detection
+* **Integrated ML Suite**: Built-in **Isolation Forest**, **Local Outlier Factor (LOF)**, and **One-Class SVM** spatial tree algorithms.
+* **Smart Fallback Engine**: Automatically switch to local statistical summaries if network rate limits occur.
+
+### 6. 🌐 Relational Multi-Dataset Workspace Joins
+* **Cross-Dataset Relational SQL**: Connect multiple files (`customers.parquet` + `transactions.parquet`) and perform relational SQL joins via natural language.
 
 ---
 
-## 🛠️ The 15 Core Engines Built
+## 🛠️ Technology Stack
 
-1. **Authentication Engine**: Secure registration and sessions using Argon2 hashing and JWT configurations.
-2. **Workspace Engine**: Handles organizational boundaries and workspaces.
-3. **Dataset Engine**: Manages uploads and converts CSV data to optimized Parquet.
-4. **Metadata Engine**: Generates and stores column types, ranges, and structures.
-5. **Data Quality Intelligence Engine**: Profiles missing columns, nulls, and duplicate values via Polars.
-6. **Analytics Engine**: Direct SQL and analytics queries against Parquet files via in-memory DuckDB connections.
-7. **Statistics Engine**: Async Celery tasks calculating Pearson/Spearman correlations and ANOVA/Welch T-Tests.
-8. **Machine Learning Engine**: Outlier detection via Isolation Forests and time-series forecasting via Holt-Winters.
-9. **Evidence Engine**: Formulates pre-computed numerical data into structured context JSON inputs.
-10. **Knowledge Engine**: Hybrid context retrieval using keyword Jaccard overlap and local Ollama semantic embeddings.
-11. **Interactive Report Engine**: Collaborative JSON document layouts mapping annotations and chat comments.
-12. **Dashboard Engine**: Glowing dark-mode user interface utilizing virtualized AG Grid lists and Apache ECharts.
-13. **AI Narrative Engine**: Automatic natural language chart summaries and report briefing narrations.
-14. **Notification Engine**: Pushes data quality warnings when a dataset profiles below a 80% health rating.
-15. **Monitoring Engine**: Displays real-time CPU/Memory usage, HTTP request latency averages, and cache hit metrics.
+* **Frontend**: React 18, Vite, ECharts (`echarts-for-react`), TailwindCSS, Lucide Icons, TanStack React Query.
+* **Backend**: FastAPI, Python 3.13, DuckDB, Polars, Scikit-learn, SQLAlchemy, Uvicorn.
+* **AI / RAG Layer**: Google Gemini API (Ephemeral RAG Context Mode), Text-to-SQL Compiler Engine.
+* **Database**: SQLite (Local Prototype) / PostgreSQL (Neon Enterprise).
 
 ---
 
-## 📦 Prerequisites
+## 🚀 Quickstart Guide
 
-Ensure you have the following installed on your machine:
-* [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-* [Node.js](https://nodejs.org/) (v18 or higher)
-* [Python 3.10+](https://www.python.org/downloads/) (if running manually without Docker)
-* [Ollama](https://ollama.com/) (optional, for local embedding models)
+### 1. Prerequisites
+* Python 3.10+
+* Node.js 18+
 
----
-
-## ⚡ Quick Start (Docker Sandbox)
-
-1. Double-click the launcher script in the project root:
-   ```bash
-   run_platform.bat
-   ```
-2. This starts all database containers, caching nodes, Celery brokers, background workers, and the Uvicorn web server in Docker.
-3. It boots the React Vite portal on `http://localhost:5173`.
-4. Open `http://localhost:5173` to register your first account and upload a dataset!
-
----
-
-## 🔧 Manual Local Development
-
-If you prefer to run the components manually without Docker:
-
-### 1. Start Redis & PostgreSQL
-Ensure you have active local instances of PostgreSQL and Redis running on their standard ports (`5432` and `6379`).
-
-### 2. Configure and Run Backend
+### 2. Backend Setup
 ```bash
-cd backend
-# Create virtual environment
-python -m venv venv
+# Navigate to project root
+cd "AURA"
+
+# Activate virtual environment
 venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Run migrations / start Uvicorn
-uvicorn app.presentation.main:app --host 127.0.0.1 --port 8000 --reload
+# Start FastAPI backend server
+python backend/start_server.py
 ```
+*Backend runs on `http://127.0.0.1:8000`.*
 
-### 3. Run Celery Worker
-In a separate terminal with active virtual environment:
+### 3. Frontend Setup
 ```bash
-cd backend
-celery -A app.infrastructure.tasks.worker worker --loglevel=info
-```
-
-### 4. Run Frontend Portal
-```bash
+# Navigate to frontend folder
 cd frontend
+
+# Install dependencies & start Vite dev server
 npm install
 npm run dev
 ```
+*Frontend runs on `http://localhost:5173`.*
 
 ---
 
-## 🧪 Testing
+## 🧪 Running Automated Tests
 
-To run the complete suite of 11 integration, unit, and performance tests:
+AURA includes unit and integration tests covering telemetry, budget manager, data ingestion, and alerting pipelines:
+
 ```bash
-cd backend
-..\venv\Scripts\activate
-python -m pytest tests
+# Run pytest suite
+venv\Scripts\pytest backend/tests/
 ```
 
 ---
 
-## ☁️ Production Cloud-Scale Variables
+## 📄 License
 
-To scale past the free sandbox limits, duplicate `backend/.env` and update the following settings:
-* **`DATABASE_URL`**: Point to a cloud PostgreSQL database (like **Supabase** Pro).
-* **`REDIS_URL`**: Point to a serverless Redis database (like **Upstash**).
-* **`GEMINI_API_KEY`**: Provide your cloud API key from **Google AI Studio** to run narration models.
-* **`UPLOAD_DIR`**: Swap local folders for S3-compatible endpoints (like **Cloudflare R2**).
+Internal Enterprise Proprietary & Academic Project — Built with Google Antigravity & DeepMind Agentic Coding Architecture.
