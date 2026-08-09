@@ -33,7 +33,10 @@ RUN pip install --no-cache-dir \
     "python-jose[cryptography]" \
     pyjwt \
     redis \
-    celery
+    celery \
+    httpx \
+    prometheus-client
+
 
 
 
