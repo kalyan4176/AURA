@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: aura_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///./data/aura_prototype.db}
+    volumes:
+      - aura_data:/app/backend/data/uploads
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: aura_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  aura_data:
