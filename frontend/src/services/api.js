@@ -1,4 +1,5 @@
-const BASE_URL = '/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://aura-pyra.onrender.com/api';
+
 
 /**
  * Enterprise client fetch wrapper.
