@@ -30,7 +30,9 @@ RUN pip install --no-cache-dir \
     numpy \
     pytest \
     "passlib[argon2]" \
+    "python-jose[cryptography]" \
     pyjwt
+
 
 
 
