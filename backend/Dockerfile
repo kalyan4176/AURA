@@ -19,6 +19,8 @@ RUN pip install --no-cache-dir \
     sqlalchemy \
     aiosqlite \
     pydantic \
+    "pydantic[email]" \
+    email-validator \
     pydantic-settings \
     python-multipart \
     google-generativeai \
@@ -29,6 +31,7 @@ RUN pip install --no-cache-dir \
     pytest \
     "passlib[argon2]" \
     pyjwt
+
 
 
 # Copy application backend code
